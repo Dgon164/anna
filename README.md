@@ -32,11 +32,15 @@ a **what's-there description** graded SOLID / WEAK / UNSTABLE by
 can't support a claim, Anna says so instead of guessing — that
 honesty is the product.
 
-    python honest_report.py client.csv --brand "Your Name"
-    python honest_report.py client.csv --time date --no-audit
-    python honest_report.py client.csv --narrative note.txt
-    python honest_report.py client.csv --window 2026-06-01 2026-06-14 --window-label "the promo"
-    python clean_file.py dirty.csv --resolution revenue=2.5
+    python core/honest_report.py client.csv --job smith-co --brand "Your Name"
+    python core/honest_report.py client.csv --time date --no-audit
+    python core/honest_report.py client.csv --narrative note.txt
+    python core/honest_report.py client.csv --window 2026-06-01 2026-06-14 --window-label "the promo"
+    python tools/clean_file.py dirty.csv --resolution revenue=2.5
+
+Layout: `core/` (her code + earned general rules), `tools/`
+(utilities), `engine/` (the bundled engine), `jobs/` (one folder
+per job; datasets never mix across jobs) — see STRUCTURE.md.
 
 Requires: Python 3.12+ and `pip install -r requirements.txt`
 (numpy, matplotlib). The engine is bundled in `engine/` — Anna is
@@ -56,5 +60,5 @@ lens-loop research direction live in `dc/docs/` (see
 SESSION_HANDOFF_2026-07-30_INCOME_AND_LENS.md and
 DESIGN_LENS_LOOP_2026-07-30.md).
 
-`portfolio/` holds the sample deliverables and `GIG_COPY.md` the
-offers, prices, and paste-ready listings.
+`jobs/portfolio/` holds the sample deliverables and `GIG_COPY.md`
+the offers, prices, and paste-ready listings.

@@ -29,10 +29,10 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'core'))
 
-# The engine is found by honest_report (bundled engine/ first —
-# see engine/ENGINE_PROVENANCE.md); run_engine below carries it.
+# The engine is found by honest_report in core/ (bundled engine/
+# first — see engine/ENGINE_PROVENANCE.md).
 
 from honest_report import (normalize, write_csv, run_engine,  # noqa: E402
                            parse_audit)
@@ -156,7 +156,9 @@ def mad_extremes(view_rows, view_header, k=8.0, cap_frac=0.05):
 def main():
     ap = argparse.ArgumentParser(description="Receipted data cleaning")
     ap.add_argument("source")
-    ap.add_argument("--out", default=os.path.join(HERE, "portfolio"))
+    # default: the cleaned output lands NEXT TO the input file, so a
+    # run inside a job folder stays inside that job (files never mix)
+    ap.add_argument("--out", default=None)
     ap.add_argument("--keep-dupes", action="store_true",
                     help="do not remove exact duplicate rows")
     ap.add_argument("--no-audit", action="store_true",
@@ -170,7 +172,9 @@ def main():
     args = ap.parse_args()
 
     name = os.path.splitext(os.path.basename(args.source))[0]
-    out_dir = os.path.join(args.out, name + "_clean")
+    out_root = (args.out if args.out
+                else os.path.dirname(os.path.abspath(args.source)))
+    out_dir = os.path.join(out_root, name + "_clean")
     os.makedirs(out_dir, exist_ok=True)
     log = []
 

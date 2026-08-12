@@ -34,16 +34,17 @@ from analyst_full import (build_extras, human,  # noqa: E402
                           derive_measures)
 
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE_DIR)   # repo root; this file lives in core/
 # ANNA is a product built on the Isaac engine, not Isaac himself.
-# The engine is BUNDLED at engine/ (a verbatim copy of the dc CLI —
-# see engine/ENGINE_PROVENANCE.md), so this repo runs standalone.
-# ISAAC_ENGINE_DIR still overrides; a sibling 'dc' clone is the
-# fallback for the old two-repo layout.
-_BUNDLED = os.path.join(HERE_DIR, 'engine')
+# The engine is BUNDLED at <root>/engine (a verbatim copy of the dc
+# CLI — see engine/ENGINE_PROVENANCE.md), so this repo runs alone.
+# ISAAC_ENGINE_DIR still overrides; a dc clone beside the repo is
+# the fallback for the old two-repo layout.
+_BUNDLED = os.path.join(ROOT, 'engine')
 DC = (os.environ.get('ISAAC_ENGINE_DIR')
       or (_BUNDLED
           if os.path.isfile(os.path.join(_BUNDLED, 'askisaac.py'))
-          else os.path.join(os.path.dirname(HERE_DIR), 'dc')))
+          else os.path.join(os.path.dirname(ROOT), 'dc')))
 
 # palette (single-series line + status marks; text never wears series color)
 BLUE = "#2a78d6"
@@ -635,7 +636,11 @@ def render(name, header, n_rows, notes, findings, audit, charts,
 def main():
     ap = argparse.ArgumentParser(description="Client-ready honest report")
     ap.add_argument("source")
-    ap.add_argument("--out", default=os.path.join(HERE_DIR, "portfolio"))
+    ap.add_argument("--job", default="portfolio",
+                    help="the job this dataset belongs to — every "
+                         "deliverable lands in jobs/<job>/<dataset>/ "
+                         "so different clients' files never mix")
+    ap.add_argument("--out", default=os.path.join(ROOT, "jobs"))
     ap.add_argument("--time", default=None,
                     help="time column passed to the analyst")
     ap.add_argument("--no-audit", action="store_true")
@@ -657,7 +662,7 @@ def main():
     args = ap.parse_args()
 
     name = os.path.splitext(os.path.basename(args.source))[0]
-    out_dir = os.path.join(args.out, name)
+    out_dir = os.path.join(args.out, args.job, name)
     os.makedirs(out_dir, exist_ok=True)
 
     rows, header, notes = normalize(args.source)
