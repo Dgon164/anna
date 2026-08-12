@@ -29,9 +29,10 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DC = (os.environ.get('ISAAC_ENGINE_DIR')
-      or os.path.join(os.path.dirname(HERE), 'dc'))
 sys.path.insert(0, HERE)
+
+# The engine is found by honest_report (bundled engine/ first —
+# see engine/ENGINE_PROVENANCE.md); run_engine below carries it.
 
 from honest_report import (normalize, write_csv, run_engine,  # noqa: E402
                            parse_audit)

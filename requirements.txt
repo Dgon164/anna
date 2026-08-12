@@ -1,0 +1,5 @@
+# Anna runs standalone: the engine is bundled in engine/ and needs
+# only numpy. matplotlib draws the report charts (without it the
+# report still runs, chartless).
+numpy
+matplotlib

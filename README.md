@@ -10,7 +10,9 @@ this repo.
 ## The family
 
 - **isaac dc** — the datacenter live version (the engine, the
-  promoted wall, the business machinery). Anna calls its CLI.
+  promoted wall, the business machinery). Anna calls its CLI — a
+  verbatim copy is bundled at `engine/` so this repo stands alone
+  (`engine/ENGINE_PROVENANCE.md` records the source commit).
 - **isaac-paperclip** — research.
 - **anna** (this repo) — the product: reports a client pays for.
 
@@ -36,9 +38,12 @@ honesty is the product.
     python honest_report.py client.csv --window 2026-06-01 2026-06-14 --window-label "the promo"
     python clean_file.py dirty.csv --resolution revenue=2.5
 
-Requires: Python 3.12+, numpy, matplotlib; the Isaac engine in a
-sibling `dc/` clone (or set `ISAAC_ENGINE_DIR`). Delimited text
-only — Excel refused with instructions, never garbage.
+Requires: Python 3.12+ and `pip install -r requirements.txt`
+(numpy, matplotlib). The engine is bundled in `engine/` — Anna is
+standalone. `ISAAC_ENGINE_DIR` still overrides the bundled copy,
+and a sibling `dc/` clone remains the fallback for the old
+two-repo layout. Delimited text only — Excel refused with
+instructions, never garbage.
 
 ## The record behind her
 

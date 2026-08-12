@@ -1,2 +1,6 @@
 ﻿__pycache__/
 *.pyc
+.venv/
+engine/audit.jsonl
+engine/__pycache__/
+engine/isaac_store/__pycache__/

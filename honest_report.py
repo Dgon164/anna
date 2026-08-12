@@ -35,10 +35,15 @@ from analyst_full import (build_extras, human,  # noqa: E402
 
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 # ANNA is a product built on the Isaac engine, not Isaac himself.
-# The engine lives in a sibling 'dc' clone or wherever
-# ISAAC_ENGINE_DIR points.
+# The engine is BUNDLED at engine/ (a verbatim copy of the dc CLI —
+# see engine/ENGINE_PROVENANCE.md), so this repo runs standalone.
+# ISAAC_ENGINE_DIR still overrides; a sibling 'dc' clone is the
+# fallback for the old two-repo layout.
+_BUNDLED = os.path.join(HERE_DIR, 'engine')
 DC = (os.environ.get('ISAAC_ENGINE_DIR')
-      or os.path.join(os.path.dirname(HERE_DIR), 'dc'))
+      or (_BUNDLED
+          if os.path.isfile(os.path.join(_BUNDLED, 'askisaac.py'))
+          else os.path.join(os.path.dirname(HERE_DIR), 'dc')))
 
 # palette (single-series line + status marks; text never wears series color)
 BLUE = "#2a78d6"
