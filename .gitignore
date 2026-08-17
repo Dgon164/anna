@@ -4,3 +4,7 @@
 engine/audit.jsonl
 engine/__pycache__/
 engine/isaac_store/__pycache__/
+
+# large raw client/demo inputs never enter the repo (GitHub 100MB wall; public datasets are re-downloadable)
+jobs/*/input/
+jobs/demo_online_retail_ii/
