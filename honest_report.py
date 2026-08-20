@@ -53,94 +53,6 @@ MISSING = {"***", "na", "n/a", "null", "none", "-", "--", ""}
 
 
 # ---------------------------------------------------------------- intake
-# money wearing formatting ($1,234.56 / 105,50 € / (2,000.00)) must be
-# READ, not demoted to "text, profiled only" — a sales report with no
-# dollar figures is the sellability audit's #1 blocker
-_CURRENCY = r"[$€£¥₹]|USD|EUR|GBP|CAD|AUD|kr"
-_FMT_NUM = re.compile(
-    r"^\(?\s*(?:" + _CURRENCY + r")?\s*-?\d[\d.,  ]*"
-    r"\s*(?:" + _CURRENCY + r")?\s*\)?$", re.I)
-_DATEISH = re.compile(r"^\d{1,4}[./]\d{1,2}[./]\d{1,4}$")
-
-
-def _plain_float(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
-
-
-def _formatted_number(v):
-    """True if v is a number wearing currency symbols or separators
-    that float() cannot read — and is not date-shaped."""
-    s = v.strip()
-    if not s or _plain_float(s) or _DATEISH.match(s):
-        return False
-    return bool(_FMT_NUM.match(s)) and \
-        (any(c in s for c in ",.") or
-         bool(re.search(_CURRENCY, s, re.I)))
-
-
-def _read_formatted(v):
-    """Convert one formatted value to a number, or None. Parentheses
-    mean negative; the decimal mark is whichever of . , comes last."""
-    s = v.strip()
-    neg = s.startswith("(") and s.endswith(")")
-    s = s.strip("()")
-    s = re.sub("(?i)" + _CURRENCY, "", s)
-    s = s.replace(" ", "").replace(" ", "").strip()
-    if s.startswith("-"):
-        neg, s = not neg, s[1:]
-    has_dot, has_comma = "." in s, "," in s
-    if has_dot and has_comma:
-        dec = "." if s.rfind(".") > s.rfind(",") else ","
-        s = s.replace("," if dec == "." else ".", "")
-        s = s.replace(dec, ".")
-    elif has_comma:
-        if re.match(r"^\d{1,3}(,\d{3})+$", s) or s.count(",") > 1:
-            s = s.replace(",", "")        # thousands: 1,234 / 1,234,567
-        else:
-            s = s.replace(",", ".")       # decimal comma: 1,51
-    elif has_dot and s.count(".") > 1:
-        s = s.replace(".", "")            # dot-thousands: 1.234.567
-    try:
-        x = float(s)
-    except ValueError:
-        return None
-    x = -x if neg else x
-    return str(int(x)) if x == int(x) else f"{x:.10g}"
-
-
-def read_formatted_numbers(rows, header, notes):
-    """Per column: if ≥80% of non-empty values are formatted numbers,
-    convert the column in place — every conversion receipted."""
-    for i, h in enumerate(header):
-        vals = [r[i] for r in rows if r[i].strip()]
-        if not vals:
-            continue
-        fmt = sum(1 for v in vals if _formatted_number(v))
-        if fmt / len(vals) < 0.8:
-            continue
-        converted = failed = 0
-        for r in rows:
-            if not r[i].strip() or not _formatted_number(r[i]):
-                continue
-            num = _read_formatted(r[i])
-            if num is None:
-                failed += 1
-            else:
-                r[i], converted = num, converted + 1
-        if converted:
-            notes.append(
-                f"column '{h}': currency/formatted numbers read as "
-                f"numbers — {converted} value(s) converted (symbols "
-                f"and thousands separators stripped, parentheses = "
-                f"negative)"
-                + (f"; {failed} unreadable value(s) left as-is"
-                   if failed else ""))
-
-
 def normalize(path):
     """Read a real-world table; return (rows, header, notes). Every
     transformation is recorded in notes — the client sees the list."""
@@ -168,11 +80,6 @@ def normalize(path):
     if n_comments:
         lines = [ln for ln in lines if not ln.lstrip().startswith("#")]
         notes.append(f"dropped {n_comments} comment line(s) starting with #")
-    if not lines:
-        raise SystemExit(
-            f"REFUSED: {os.path.basename(path)} has no content "
-            f"(empty or blank file) — nothing to analyze. Check the "
-            f"export that produced it and run this again.")
 
     # delimiter: the candidate that splits the most lines consistently
     sample = lines[:50]
@@ -210,12 +117,6 @@ def normalize(path):
                      f"the table has {modal_w} — cannot align to "
                      f"columns; content: {best.join(r)[:80]!r}")
     parsed = [r for r in parsed if len(r) == modal_w]
-    if not parsed:
-        raise SystemExit(
-            f"REFUSED: no row in {os.path.basename(path)} could be "
-            f"aligned to a consistent table — every row was "
-            f"quarantined. This is not a delimited table we can "
-            f"read honestly.")
 
     def numeric(cell):
         try:
@@ -233,10 +134,6 @@ def normalize(path):
         header = [f"col{i}" for i in range(modal_w)]
         rows = parsed
         notes.append("no header row found — generated column names")
-    if not rows:
-        raise SystemExit(
-            f"REFUSED: {os.path.basename(path)} has a header but no "
-            f"data rows — nothing to analyze.")
     seen = {}
     for i, h in enumerate(header):
         if h in seen:
@@ -252,7 +149,6 @@ def normalize(path):
     if n_miss:
         notes.append(f"blanked {n_miss} missing-value marker(s) "
                      f"(***, NA, null, ...)")
-    read_formatted_numbers(rows, header, notes)
     return rows, header, notes
 
 
@@ -264,23 +160,6 @@ def write_csv(rows, header, path):
 
 
 # ---------------------------------------------------------------- engine
-def engine_available():
-    """The certified-law tier needs the private engine (a sibling dc
-    clone or ISAAC_ENGINE_DIR). The anna repo is STANDALONE: without
-    the engine, every organ in this repo still runs — the report
-    carries the what's-there tier only, and says so."""
-    return os.path.exists(os.path.join(DC, "askisaac.py"))
-
-
-def standalone_findings(header, kinds):
-    """No engine: the columns the analyst face would have covered,
-    as empty findings — the descriptive tier fills them in."""
-    return [dict(name=h, lines=[], verdict=None, equation=None,
-                 books=None, cycle=None, forecast=None)
-            for h in header
-            if kinds.get(h, {}).get("kind") in ("numeric", "rate")]
-
-
 def run_engine(csv_path, extra):
     """Run the promoted CLI untouched; return its verbatim text."""
     cmd = [sys.executable, os.path.join(DC, "askisaac.py"), csv_path] + extra
@@ -289,14 +168,6 @@ def run_engine(csv_path, extra):
     out = subprocess.run(cmd, capture_output=True, text=True, cwd=DC,
                          timeout=1800, encoding="utf-8", errors="replace",
                          env=env)
-    # a dead engine must be LOUD, never a polished hollow report —
-    # the sellability audit caught exactly that failure shipping
-    if not out.stdout.strip():
-        raise SystemExit(
-            f"ENGINE FAILED (exit {out.returncode}): askisaac "
-            f"returned nothing, so there is nothing honest to "
-            f"render. stderr tail: "
-            f"{(out.stderr or '').strip()[-400:] or '(empty)'}")
     return out.stdout, time.perf_counter() - t0
 
 
@@ -573,13 +444,6 @@ def plain_summary(findings, audit, described=None):
     for f in findings:
         n = f["name"]
         desc = described.get(n)
-        if f["verdict"] is None:
-            # no engine verdict for this column (standalone build,
-            # or a face section without a trend line) — the
-            # descriptive tier speaks alone, plainly labeled
-            if desc:
-                out.append(f"**{n}** — {desc['sentence']}")
-            continue
         if f["verdict"] == "NO RULE":
             if f["cycle"]:
                 lead = (f"**{n}** — found a repeating cycle "
@@ -658,18 +522,8 @@ def render(name, header, n_rows, notes, findings, audit, charts,
         md.append("\n## Charts\n")
         for n, p in charts.items():
             md.append(f"![{n}](charts/{os.path.basename(p)})")
-    if analyst_text.strip():
-        md.append("\n## The receipts — analyst face (verbatim)\n")
-        md.append("```\n" + analyst_text.strip() + "\n```")
-    else:
-        md.append("\n## About this standalone build\n")
-        md.append("- this report came from the standalone analyzer: "
-                  "the certified-rule tier (the strictest law "
-                  "courts) was not run. Every claim above is a "
-                  "what's-there description carrying its own "
-                  "stability grade and receipt — nothing was "
-                  "certified, and nothing is dressed up as if it "
-                  "were.")
+    md.append("\n## The receipts — analyst face (verbatim)\n")
+    md.append("```\n" + analyst_text.strip() + "\n```")
     if audit_text:
         md.append("\n## The receipts — audit face (verbatim)\n")
         md.append("```\n" + audit_text.strip() + "\n```")
@@ -798,10 +652,7 @@ def main():
     args = ap.parse_args()
 
     name = os.path.splitext(os.path.basename(args.source))[0]
-    # absolute always: the engine runs with cwd=DC, so a relative
-    # --out used to hand it a path that exists only from HERE —
-    # the engine died silently and a hollow report shipped
-    out_dir = os.path.abspath(os.path.join(args.out, name))
+    out_dir = os.path.join(args.out, name)
     os.makedirs(out_dir, exist_ok=True)
 
     rows, header, notes = normalize(args.source)
@@ -812,44 +663,28 @@ def main():
     print(f"intake: {len(rows)} rows x {len(header)} cols; "
           f"{len(notes)} normalization note(s)", flush=True)
 
-    standalone = not engine_available()
-    analyst_text, t1 = ("", 0.0)
+    extra = ["--analyst"] + (["--time", args.time] if args.time else [])
+    analyst_text, t1 = run_engine(norm_csv, extra)
+    print(f"analyst face: {t1:.1f}s", flush=True)
     audit_text, t2 = ("", 0.0)
-    if standalone:
-        print("standalone build: no engine found — the certified-law "
-              "tier is off; every claim in this report is a graded "
-              "what's-there description and says so. (Clone the "
-              "engine beside anna or set ISAAC_ENGINE_DIR to turn "
-              "certification on.)", flush=True)
-    else:
-        extra = ["--analyst"] + (["--time", args.time]
-                                 if args.time else [])
-        analyst_text, t1 = run_engine(norm_csv, extra)
-        print(f"analyst face: {t1:.1f}s", flush=True)
-        if not args.no_audit:
-            audit_text, t2 = run_engine(norm_csv, ["--audit"])
-            print(f"audit face: {t2:.1f}s", flush=True)
+    if not args.no_audit:
+        audit_text, t2 = run_engine(norm_csv, ["--audit"])
+        print(f"audit face: {t2:.1f}s", flush=True)
 
+    findings = parse_analyst(analyst_text)
     # identifiers and coordinates are labels wearing numbers — the
     # engine may analyze them, but they never trend, chart, or
     # summarize as quantities in the client-facing layers
     kinds = classify_columns(rows, header)
-    if standalone:
-        findings = standalone_findings(header, kinds)
-    else:
-        findings = [f for f in parse_analyst(analyst_text)
-                    if kinds.get(f["name"], {}).get("kind")
-                    not in ("identifier", "coordinate")]
+    findings = [f for f in findings
+                if kinds.get(f["name"], {}).get("kind")
+                not in ("identifier", "coordinate")]
     audit = parse_audit(audit_text) if audit_text else None
     time_col = args.time
-    if not time_col and analyst_text:
+    if not time_col:
         m = re.search(r"time key: (.+?) \(", analyst_text)
         if m:
             time_col = m.group(1).strip()
-    if not time_col:
-        time_col = next((h for h in header
-                         if kinds.get(h, {}).get("kind") == "date"),
-                        None)
     described = describe_columns(rows, header, findings, time_col)
     charts = make_charts(rows, header, findings, time_col,
                          os.path.join(out_dir, "charts"), described)
@@ -899,10 +734,9 @@ def main():
             narrative = note
             print("narrative verified: every number traces to the "
                   "receipts — included.", flush=True)
-    if analyst_text:
-        with open(os.path.join(out_dir, "receipts_analyst.txt"), "w",
-                  encoding="utf-8") as f:
-            f.write(analyst_text)
+    with open(os.path.join(out_dir, "receipts_analyst.txt"), "w",
+              encoding="utf-8") as f:
+        f.write(analyst_text)
     if audit_text:
         with open(os.path.join(out_dir, "receipts_audit.txt"), "w",
                   encoding="utf-8") as f:
